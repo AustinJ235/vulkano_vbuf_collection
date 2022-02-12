@@ -22,69 +22,55 @@ pub struct AnotherBuffer { }
 
 pub trait BufferAccess { }
 impl BufferAccess for Buffer { }
-impl BufferAccess for Arc<Buffer> { }
 impl BufferAccess for AnotherBuffer { }
-impl BufferAccess for Arc<AnotherBuffer> { }
 
 pub trait BufferAccessObject {
-    fn into_object(&self) -> Arc<dyn BufferAccess>;
+    fn as_buffer_access_object(&self) -> Arc<dyn BufferAccess>;
 }
 
 impl BufferAccessObject for Arc<dyn BufferAccess> {
-    fn into_object(&self) -> Arc<dyn BufferAccess> {
+    fn as_buffer_access_object(&self) -> Arc<dyn BufferAccess> {
         self.clone()
     }
 }
 
 impl BufferAccessObject for Arc<Buffer> {
-    fn into_object(&self) -> Arc<dyn BufferAccess> {
+    fn as_buffer_access_object(&self) -> Arc<dyn BufferAccess> {
         self.clone()
     }
 }
 
 impl BufferAccessObject for Arc<AnotherBuffer> {
-    fn into_object(&self) -> Arc<dyn BufferAccess> {
+    fn as_buffer_access_object(&self) -> Arc<dyn BufferAccess> {
         self.clone()
     }
 }
 
-pub trait BufferCollection {
+pub trait VertexBuffersCollection {
     fn into_vec(self) -> Vec<Arc<dyn BufferAccess>>;
 }
 
-impl BufferCollection for () {
+impl VertexBuffersCollection for () {
     fn into_vec(self) -> Vec<Arc<dyn BufferAccess>> {
         Vec::new()
     }
 }
 
-impl<T: BufferAccessObject> BufferCollection for T {
+impl<T: BufferAccessObject> VertexBuffersCollection for T {
     fn into_vec(self) -> Vec<Arc<dyn BufferAccess>> {
-        vec![self.into_object()]
+        vec![self.as_buffer_access_object()]
     }
 }
 
-impl<T: BufferAccessObject> BufferCollection for Vec<T> {
+impl<T: BufferAccessObject> VertexBuffersCollection for Vec<T> {
     fn into_vec(self) -> Vec<Arc<dyn BufferAccess>> {
-        self.into_iter().map(|src| src.into_object()).collect()
+        self.into_iter().map(|src| src.as_buffer_access_object()).collect()
     }
 }
-
-impl BufferCollection for Vec<Arc<dyn BufferAccessObject>> {
-    fn into_vec(self) -> Vec<Arc<dyn BufferAccess>> {
-        self.into_iter().map(|src| src.into_object()).collect()
-    }
-}
-
-/*impl<A: BufferAccessObject, B: BufferAccessObject> BufferCollection for (A, B) {
-    fn into_vec(self) -> Vec<Arc<dyn BufferAccess>> {
-        vec![self.0.into_object(), self.1.into_object()]
-    }
-}*/
 
 macro_rules! impl_collection {
     ($first:ident $(, $others:ident)+) => (
-        impl<$first$(, $others)+> BufferCollection for ($first, $($others),+)
+        impl<$first$(, $others)+> VertexBuffersCollection for ($first, $($others),+)
             where $first: BufferAccessObject
                   $(, $others: BufferAccessObject)*
         {
@@ -94,10 +80,10 @@ macro_rules! impl_collection {
 
                 let ($first, $($others,)*) = self;
                 let mut list = Vec::new();
-                list.push($first.into_object());
+                list.push($first.as_buffer_access_object());
 
                 $(
-                    list.push($others.into_object());
+                    list.push($others.as_buffer_access_object());
                 )+
 
                 list
@@ -112,6 +98,6 @@ macro_rules! impl_collection {
 
 impl_collection!(Z, Y, X, W, V, U, T, S, R, Q, P, O, N, M, L, K, J, I, H, G, F, E, D, C, B, A);
 
-fn takes_collection<C: BufferCollection>(collection: C) {
+fn takes_collection<C: VertexBuffersCollection>(collection: C) {
     let _vec: Vec<Arc<dyn BufferAccess>> = collection.into_vec();
 }
